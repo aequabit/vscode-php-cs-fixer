@@ -1,5 +1,7 @@
 # PHP CS Fixer for Visual Studio Code
 
+## With HHVM support
+
 This extension simply provides [PHP CS Fixer](https://github.com/FriendsOfPHP/PHP-CS-Fixer) command.
 
 ## Instalation

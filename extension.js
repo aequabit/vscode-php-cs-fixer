@@ -169,9 +169,12 @@ class PHPCSFixer {
             }
 
             let line = document.lineAt(start);
-            let code = "<?php\n";
+            let code = '<?' + (editor.document.languageId === 'hack' ? 'hack' : 'php') + '\n';
             let dealFun = (fixed) => {
-                return fixed.replace(/^<\?php\r?\n/, '').replace(/\s*$/, '');
+                return fixed
+                    .replace(/^<\?php\r?\n/, '')
+                    .replace(/^<\?hh\r?\n/, '')
+                    .replace(/\s*$/, '');
             };
             let searchIndex = -1;
             if (/^\s*\{\s*$/.test(line.text)) {
@@ -192,8 +195,11 @@ class PHPCSFixer {
                 code += line.text.match(/^(\s*)\S+/)[1] + "if(1)";
                 dealFun = (fixed) => {
                     let match = fixed.match(/^<\?php\s+?if\s*\(\s*1\s*\)\s*(\{[\s\S]+?\})\s*$/i);
+                    let matchHhvm = fixed.match(/^<\?hh\s+?if\s*\(\s*1\s*\)\s*(\{[\s\S]+?\})\s*$/i);
                     if (match != null) {
                         fixed = match[1];
+                    } else if (matchHhvm != null) {
+                        fixed = matchHhvm[1];
                     } else {
                         fixed = '';
                     }
@@ -236,11 +242,15 @@ class PHPCSFixer {
         }
 
         let dealFun = (fixed) => {
-            return fixed.replace(/^<\?php\r?\n/, '').replace(/\s*$/, '');
+            return fixed
+                .replace(/^<\?php\r?\n/, '')
+                .replace(/^<\?hh\r?\n/, '')
+                .replace(/\s*$/, '');
         };
 
-        let range = line.range;
-        let originalText = '<?php\n' + line.text;
+
+        let range = line.range;  
+        let originalText = '<?' + (editor.document.languageId === 'hack' ? 'hack' : 'php') +'\n' + line.text;
         this.format(originalText).then((text) => {
             if (text != originalText) {
                 if (dealFun) text = dealFun(text);
@@ -304,19 +314,21 @@ exports.activate = (context) => {
     let pcf = new PHPCSFixer();
 
     context.subscriptions.push(workspace.onWillSaveTextDocument((event) => {
-        if (event.document.languageId == 'php' && pcf.onsave && workspace.getConfiguration('editor').get('formatOnSave') == false) {
-            event.waitUntil(commands.executeCommand("editor.action.formatDocument"));
+        if ((event.document.languageId == 'php' || event.document.languageId == 'hack') && pcf.onsave && workspace
+                .getConfiguration('editor')
+                .get('formatOnSave') == false) {
+            event.waitUntil(commands.executeCommand('editor.action.formatDocument'));
         }
     }));
 
     context.subscriptions.push(commands.registerTextEditorCommand('php-cs-fixer.fix', (textEditor) => {
-        if (textEditor.document.languageId == 'php') {
-            commands.executeCommand("editor.action.formatDocument");
+        if (textEditor.document.languageId == 'php' || textEditor.document.languageId == 'hack') {
+            commands.executeCommand('editor.action.formatDocument');
         }
     }));
 
     context.subscriptions.push(workspace.onDidChangeTextDocument((event) => {
-        if (event.document.languageId == 'php' && autoFixing == false) {
+        if ((event.document.languageId == 'php' || textEditor.document.languageId == 'hack') && autoFixing == false) {
             if (pcf.autoFixByBracket) {
                 pcf.doAutoFixByBracket(event);
             }
@@ -331,7 +343,7 @@ exports.activate = (context) => {
     }));
 
     if (pcf.documentFormattingProvider) {
-        context.subscriptions.push(languages.registerDocumentFormattingEditProvider('php', {
+        let formatEditProvider = {
             provideDocumentFormattingEdits: (document, options, token) => {
                 autoFixing = false;
                 return new Promise((resolve, reject) => {
@@ -351,9 +363,11 @@ exports.activate = (context) => {
                     });
                 });
             }
-        }));
+        };
+        context.subscriptions.push(languages.registerDocumentFormattingEditProvider('php', formatEditProvider));
+        context.subscriptions.push(languages.registerDocumentFormattingEditProvider('hack', formatEditProvider));
 
-        context.subscriptions.push(languages.registerDocumentRangeFormattingEditProvider('php', {
+        let rangeFormatProvider = {
             provideDocumentRangeFormattingEdits: (document, range, options, token) => {
                 autoFixing = false;
                 return new Promise((resolve, reject) => {
@@ -363,13 +377,14 @@ exports.activate = (context) => {
                         return;
                     }
                     let addPHPTag = false;
-                    if (originalText.search(/^\s*<\?php/i) == -1) {
-                        originalText = "<?php\n" + originalText;
+                    if (originalText.search(/^\s*<\?php/i) == -1 || originalText.search(/^\s*<\?hh/i) == -1) {
+                        originalText = '<?php\n' + originalText;
                         addPHPTag = true;
                     }
                     pcf.format(originalText).then((text) => {
                         if (addPHPTag) {
                             text = text.replace(/^<\?php\r?\n/, '');
+                            text = text.replace(/^<\?hh\r?\n/, '');
                         }
                         if (text != originalText) {
                             resolve([new vscode.TextEdit(range, text)]);
@@ -381,6 +396,8 @@ exports.activate = (context) => {
                     });
                 });
             }
-        }));
+        };
+        context.subscriptions.push(languages.registerDocumentRangeFormattingEditProvider('php', rangeFormatProvider));
+        context.subscriptions.push(languages.registerDocumentRangeFormattingEditProvider('hack', rangeFormatProvider));
     }
 };
