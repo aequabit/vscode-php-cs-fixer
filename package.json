@@ -2,7 +2,7 @@
     "name": "php-cs-fixer",
     "displayName": "PHP CS Fixer",
     "description": "PHP CS Fixer extension for VS Code - based on junstyle's extension",
-    "version": "0.1.57",
+    "version": "0.1.58",
     "publisher": "aequabit",
     "homepage": "https://github.com/aequabit/vscode-php-cs-fixer",
     "icon": "logo.png",

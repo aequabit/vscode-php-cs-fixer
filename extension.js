@@ -56,7 +56,7 @@ class PHPCSFixer {
     }
 
     getArgs(fileName) {
-        let args = ['fix', '--using-cache=no', fileName];
+        let args = ['fix', fileName];
         if (this.pharPath != null) {
             args.unshift(this.pharPath);
         }
@@ -72,17 +72,11 @@ class PHPCSFixer {
             for (let i = 0, len = files.length; i < len; i++) {
                 let c = files[i];
                 if (fs.existsSync(c)) {
-                    args.push('--config=' + c);
+                    args.push('--config-file=' + c);
                     useConfig = true;
                     break;
                 }
             }
-        }
-        if (!useConfig && this.rules) {
-            args.push('--rules=' + this.rules);
-        }
-        if (this.allowRisky) {
-            args.push('--allow-risky=yes');
         }
         console.log(args);
         return args;
@@ -106,7 +100,7 @@ class PHPCSFixer {
                 }
             });
             exec.on("exit", (code) => {
-                if (code == 0) {
+                if (code == 0 || code == 1) {
                     let fixed = fs.readFileSync(fileName, 'utf-8');
                     if (fixed.length > 0) {
                         resolve(fixed);
@@ -115,7 +109,6 @@ class PHPCSFixer {
                     }
                 } else {
                     let msgs = {
-                        1: 'PHP CS Fixer: php general error.',
                         16: 'PHP CS Fixer: Configuration error of the application.',
                         32: 'PHP CS Fixer: Configuration error of a Fixer.',
                         64: 'PHP CS Fixer: Exception raised within the application.'
